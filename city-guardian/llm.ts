@@ -13,7 +13,8 @@ export const llmConfigSchema = z.object({
   /** Model id as the provider spells it. For Anthropic: claude-sonnet-5-5. For xKiro: the id from GET /v1/models. */
   model: z.string(),
   baseUrl: z.string().optional(),
-  maxTokens: z.number().int().min(50).max(1000).default(300),
+  /** Output budget. Leave room: a model that thinks first spends part of it before the JSON answer starts. */
+  maxTokens: z.number().int().min(50).max(4000).default(600),
 })
 export type LlmConfig = z.infer<typeof llmConfigSchema>
 
@@ -27,7 +28,9 @@ export const SYSTEM_PROMPT = [
   'You are the risk officer ("satpam") of Nusastakes, a game where each city is an on-chain vault that a mayor invests',
   'in real DeFi protocols. Residents can only be protected in one way: pulling a city\'s funds back to idle cash.',
   'You will receive a JSON snapshot of cities and of the off-chain source vault their yield is mirrored from.',
-  'Classify the overall risk as LOW, MEDIUM or HIGH and explain it in one or two plain sentences.',
+  'Classify the overall risk as LOW, MEDIUM or HIGH and explain it in one or two plain sentences. Each city carries a',
+  '"ruleRisk" from a deterministic engine: treat it as input, form your own judgement from the data, and make "risk"',
+  'agree with the reason you give (if your reason finds no concrete loss, the risk is not HIGH).',
   'Rules: use HIGH only when the data shows a concrete loss, a red warning, or a collapse; never invent facts that are',
   'not in the snapshot; missing data is not a reason for HIGH.',
   'Reply with ONLY a JSON object: {"risk":"LOW|MEDIUM|HIGH","reason":"..."} and nothing else.',
@@ -60,6 +63,9 @@ export function buildLlmRequest(cfg: LlmConfig, apiKey: string, snapshot: unknow
   const body = JSON.stringify({
     model: cfg.model,
     max_tokens: cfg.maxTokens,
+    // Claude Sonnet 5.5 thinks by default (about 300 tokens here, which cut the JSON answer off at max_tokens 300 and
+    // added seconds against the 10 s limit on HTTP calls). A one-line verdict does not need it. xKiro accepts either form.
+    ...(cfg.provider === 'anthropic' ? { thinking: { type: 'between_tools' } } : {}),
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: JSON.stringify(snapshot) }],
   })

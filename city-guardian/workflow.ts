@@ -19,6 +19,7 @@ import {
   getNetwork,
   json,
   ok,
+  text,
   TxStatus,
   type HTTPSendRequester,
   type Runtime,
@@ -51,6 +52,8 @@ export const configSchema = z.object({
   guardianAddress: z.string(),
   /** At most 3, so the run stays inside the 15-read quota. */
   maxCities: z.number().int().min(1).max(3).default(3),
+  /** Index in the factory's city list of the first city to watch. A window of `maxCities` cities starts here. */
+  firstCity: z.number().int().min(0).default(0),
   thresholds: z.object({
     drawdownHighBps: z.number().int().min(1),
     drawdownMediumBps: z.number().int().min(1),
@@ -106,7 +109,8 @@ const fetchSource = (
   return { reachable: true, data: JSON.stringify(metrics) }
 }
 
-type LlmWire = { ok: boolean; risk?: RiskLevel; reason?: string }
+/** `detail` says why a reply was unusable (a string, so it can cross consensus). It never contains the API key. */
+type LlmWire = { ok: boolean; risk?: RiskLevel; reason?: string; detail?: string }
 
 const askLlm = (
   sendRequester: HTTPSendRequester,
@@ -121,9 +125,16 @@ const askLlm = (
       cacheSettings: { store: true, maxAge: '60s' },
     })
     .result()
-  if (!ok(resp)) return { ok: false }
-  const reply = parseLlmReply(replyText(json(resp)))
-  return reply ? { ok: true, risk: reply.risk, reason: reply.reason } : { ok: false }
+  if (!ok(resp)) return { ok: false, detail: `HTTP status ${resp.statusCode}: ${text(resp).slice(0, 200)}` }
+  const body = text(resp)
+  let payload: unknown = null
+  try {
+    payload = JSON.parse(body)
+  } catch {
+    return { ok: false, detail: `reply is not JSON: ${body.slice(0, 200)}` }
+  }
+  const reply = parseLlmReply(replyText(payload))
+  return reply ? { ok: true, risk: reply.risk, reason: reply.reason } : { ok: false, detail: `reply has no usable verdict: ${body.slice(0, 300)}` }
 }
 
 // ─── Core ─────────────────────────────────────────────────
@@ -144,7 +155,7 @@ interface CitySnapshot {
 }
 
 function readCities(runtime: Runtime<Config>, guardian: CityGuardian, factory: CityFactory, evm: InstanceType<typeof cre.capabilities.EVMClient>): CitySnapshot[] {
-  const infos = factory.cityInfos(runtime, 0n, BigInt(runtime.config.maxCities))
+  const infos = factory.cityInfos(runtime, BigInt(runtime.config.firstCity), BigInt(runtime.config.maxCities))
   return infos.map((info) => {
     const city = getAddress(info.vault)
     const satpamEnabled = guardian.isActiveAgent(runtime, city, CRE_SATPAM, SATPAM_ROLE)
@@ -284,7 +295,7 @@ function askForOpinion(
       runtime.log(`LLM opinion: ${reply.risk} - ${reply.reason}`)
       return { risk: reply.risk, reason: reply.reason }
     }
-    runtime.log('LLM reply was not usable; continuing with rules only')
+    runtime.log(`LLM reply was not usable (${reply.detail ?? 'no detail'}); continuing with rules only`)
   } catch (e) {
     runtime.log(`LLM call failed: ${String(e)}; continuing with rules only`)
   }

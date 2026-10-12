@@ -3,9 +3,10 @@
 Workflow Chainlink CRE **"City Guardian"** (peran Satpam) untuk **Nusastakes**: memantau kota (vault ERC-4626) dan,
 bila risikonya tinggi, meminta kontrak `CityGuardian` menarik dana kota dari adapter kembali ke idle.
 
-> **Status:** kode workflow, tes, dan binding kontrak sudah ada dan lulus (47 tes bun). **Belum pernah dijalankan di
-> simulator CRE sungguhan**, karena CLI CRE mewajibkan login akun (`cre login`) bahkan untuk simulasi. Forwarder CRE
-> yang menulis ke `CityGuardian` di Monad testnet juga belum diuji. Langkah menjalankannya ada di bagian "Simulasi".
+> **Status:** kode workflow, tes, dan binding kontrak lulus (49 tes bun). **Sudah dijalankan di simulator CRE** (13 Okt
+> 2026): simulasi dengan `--broadcast` mengirim laporan lewat forwarder simulasi ke `CityGuardian` di Monad testnet dan
+> mengevakuasi adapter kota demo (tx `0x10749bb7f363aaeae6461b6d3f31175921148f79da323baa478c3251a6332cca`, lihat bagian
+> "Simulasi"). **Belum diuji** di jaringan DON sungguhan dengan forwarder produksi: itu butuh Deploy Access dari Chainlink.
 
 ## Cara kerja
 
@@ -37,7 +38,7 @@ pernah mengirim dana ke pihak ketiga.
 | `city-guardian/workflow.ts` | Workflow: pembacaan rantai, HTTP, penilaian, laporan |
 | `city-guardian/risk.ts` | Aturan risiko, penggabungan dengan LLM, enkode muatan laporan (murni, tanpa SDK) |
 | `city-guardian/llm.ts` | Permintaan dan parsing balasan LLM untuk dua provider |
-| `city-guardian/*.test.ts` | 47 tes (`bun test`) |
+| `city-guardian/*.test.ts` | 49 tes (`bun test`) |
 | `city-guardian/config.{staging,production}.json` | Parameter: jadwal, alamat kontrak, ambang, provider LLM |
 | `contracts/evm/src/abi/` | ABI ringkas (hanya fungsi yang dipakai workflow) dari repo `contracts` |
 | `contracts/evm/ts/generated/` | Binding TypeScript hasil `cre generate-bindings evm` |
@@ -46,7 +47,7 @@ pernah mengirim dana ke pihak ketiga.
 ## Konfigurasi
 
 `city-guardian/config.staging.json` (ambang dalam basis poin; `maxCities` paling banyak 3 supaya tetap di bawah kuota
-15 pembacaan EVM per eksekusi):
+15 pembacaan EVM per eksekusi; `firstCity` = indeks kota pertama di factory yang dipantau, lihat "Keterbatasan"):
 
 ```json
 {
@@ -55,8 +56,9 @@ pernah mengirim dana ke pihak ketiga.
   "factoryAddress": "0x6765F0C80F6a7D5EC7Af120d12e81628F641508E",
   "guardianAddress": "0x083899bEE8138E5f951db568926393FDb1F418A2",
   "maxCities": 3,
+  "firstCity": 0,
   "thresholds": { "drawdownHighBps": 200, "drawdownMediumBps": 50, "apyOutlierPct": 25 },
-  "llm": { "provider": "anthropic", "model": "claude-sonnet-5-5", "maxTokens": 300 },
+  "llm": { "provider": "anthropic", "model": "claude-sonnet-5-5", "maxTokens": 600 },
   "source": { "morphoApi": "https://blue-api.morpho.org/graphql", "vault": "0x32841A8511D5c2c5b253f45668780B99139e476D", "chainId": 143 },
   "gasLimit": "450000"
 }
@@ -91,15 +93,34 @@ belum mengaktifkan Satpam, adapter kosong, transaksi laporan gagal, dan muatan l
 
 ## Simulasi (butuh akun CRE)
 
-1. Buat akun di https://app.chain.link/cre/discover (dengan 2FA), lalu `cre login`.
+1. Buat akun di https://app.chain.link/cre/discover (dengan 2FA), lalu `cre login` (terminal biasa; membuka browser).
+   Simulasi tidak butuh Deploy Access.
 2. Isi `.env` dari `.env.example`: `CRE_ETH_PRIVATE_KEY` (kunci testnet khusus simulator, butuh sedikit MON bila memakai
    `--broadcast`) dan kunci LLM bila ingin pendapat kedua.
 3. Simulasi baca-saja: `cre workflow simulate city-guardian --target staging-settings --non-interactive --trigger-index 0`.
-4. Untuk menulis laporan sungguhan ke Monad testnet (`--broadcast`), pemilik `CityGuardian` harus lebih dulu mengganti
-   forwarder ke forwarder simulasi `0xB9F79d863261869B234c481D1f9A7af84AeAd192` (`setForwarderAddress`) dan mematikan
-   penguncian identitas sementara (`setIdentityEnforced(false)`), lalu walikota kota demo memberi peran Satpam ke
-   `CRE_SATPAM()` (`grantAgent`). Setelah demo, kembalikan keduanya. Dokumentasi Chainlink saling bertentangan tentang
-   apakah simulasi benar-benar memanggil `onReport`, jadi ini perlu dibuktikan dengan `--broadcast`.
+   Kota yang walikotanya belum mengaktifkan Satpam dilewati, jadi hasilnya "skipped".
+4. Simulasi yang menulis ke Monad testnet (`--broadcast`) butuh persiapan on-chain yang dilakukan `city-guardian/demo.ts`
+   (membaca `.env` lewat `set -a; . ../../.env; . ../.env; set +a`):
+   - `bun run demo.ts setup`: mendirikan kota "Satpam demo" (walikota = wallet deployer), mengisinya dari faucet relayer,
+     memindahkan setengahnya ke adapter mirror, mengaktifkan `CRE_SATPAM` untuk kota itu, mengarahkan `CityGuardian` ke
+     forwarder simulasi `0xB9F79d863261869B234c481D1f9A7af84AeAd192` dengan `setIdentityEnforced(false)`, dan mendanai
+     kunci simulator dengan 2 MON.
+   - Isi `demoForceHighCity` (alamat vault kota demo) dan `firstCity` (indeks kota itu dikurangi 2) di config, lalu
+     `cre workflow simulate city-guardian --target staging-settings --broadcast --non-interactive --trigger-index 0`.
+   - `bun run demo.ts restore`: mengembalikan forwarder asli dan `identityEnforced=true` dan mencabut Satpam kota demo.
+     `bun run demo.ts status` menunjukkan keadaan sekarang.
+   Selama guardian memakai forwarder simulasi, siapa pun bisa mengirim laporan ke sana (forwarder itu tidak memeriksa
+   tanda tangan), tetapi hanya untuk kota yang mengaktifkan Satpam dan efeknya hanya menarik dana ke idle. Jangan
+   dijalankan di mainnet.
+
+**Hasil 13 Okt 2026:** log simulator menunjukkan kota dibaca, sumber Morpho terjangkau, aturan HIGH (bendera demo), lalu
+`EVACUATE Satpam demo adapter 0x5Ac88e9D…1CA2 (500000021 units)` dan `Report sent. tx 0x10749bb7…cca`. Tx itu berstatus
+sukses (kunci simulator ke forwarder simulasi, 450000 gas) dan menghasilkan `EvacuationRequested` di guardian; sesudahnya
+adapter berisi 0 dan seluruh 1.000,000022 AUSD kota ada di idle. Konfigurasi guardian lalu dipulihkan.
+
+**Keterbatasan:** workflow hanya memantau satu jendela `maxCities` (paling banyak 3) kota mulai dari `firstCity`,
+karena kuota 15 pembacaan EVM per eksekusi. Di factory dengan banyak kota, kota ber-Satpam di luar jendela tidak terpantau.
+Perbaikan yang layak: temukan kota ber-Satpam lewat log `AgentGranted` (`filterLogs`).
 
 ## Temuan saat membangun (berguna untuk pengembang CRE lain)
 
@@ -109,6 +130,9 @@ belum mengaktifkan Satpam, adapter kosong, transaksi laporan gagal, dan muatan l
   `maxAgeMs` seperti pada contoh dokumentasi lama. Dengan cache, hanya satu node yang benar-benar memanggil LLM dan node
   lain memakai jawabannya, sehingga konsensus identik tercapai.
 - Namespace rahasia bawaan adalah `main`.
+- Claude Sonnet 5.5 berpikir dulu secara default (blok `thinking`, ±280 token). Dengan `max_tokens: 300` JSON jawabannya
+  terpotong dan balasan tampak tidak usable, padahal mock tes hijau. Untuk Anthropic kirim `thinking: {"type": "between_tools"}`
+  (nol token berpikir, ±2 detik; `"disabled"` ditolak 400) dan beri `max_tokens` longgar. Panggilan HTTP di simulator dibatasi 10 detik.
 - Kegagalan HTTP yang ditangkap bisa membuat tes hijau diam-diam; tes harus membuktikan bahwa sumber benar-benar terbaca.
 - `cre generate-bindings` menghasilkan kode yang salah tipe untuk event tanpa parameter (`EIP712DomainChanged`), jadi
   ABI diringkas ke fungsi yang dipakai saja.

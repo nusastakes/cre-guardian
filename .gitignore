@@ -6,3 +6,4 @@ dist/
 *.wasm
 .DS_Store
 *.log
+.cre_build_tmp.js

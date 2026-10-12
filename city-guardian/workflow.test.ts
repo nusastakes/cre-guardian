@@ -50,6 +50,8 @@ interface Setup {
   evm: EvmMock
   reports: Uint8Array[]
   writes: number
+  /** The (start, count) the workflow asked the factory for. */
+  cityWindow?: [bigint, bigint]
 }
 
 /** Wires up the chain: which cities exist, whether the satpam is enabled, price vs high-water mark, adapter holdings. */
@@ -61,7 +63,10 @@ function setupChain(opts: {
 }): Setup {
   const evm = EvmMock.testInstance(CHAIN_SELECTOR)
   const state: Setup = { evm, reports: [], writes: 0 }
-  newCityFactoryMock(FACTORY, evm).cityInfos = () => opts.cities
+  newCityFactoryMock(FACTORY, evm).cityInfos = (start, count) => {
+    state.cityWindow = [start, count]
+    return opts.cities
+  }
   newCityGuardianMock(GUARDIAN, evm).isActiveAgent = (city) => opts.enabled?.[getAddress(city)] ?? true
   for (const c of opts.cities) {
     newCityVaultMock(c.vault, evm).highWaterMark = () => opts.highWaterMark?.[c.vault] ?? ONE
@@ -155,6 +160,13 @@ describe('City Guardian workflow', () => {
     expect(chain.writes).toBe(1)
   })
 
+  test('asks the factory for the configured window of cities', () => {
+    calmSource()
+    const chain = setupChain({ cities: [info(CITY_A, 'Jakarta', ONE, [ADAPTER_A1])] })
+    onCronTrigger(runtimeWith(baseConfig({ firstCity: 3, maxCities: 2 })))
+    expect(chain.cityWindow).toEqual([3n, 2n])
+  })
+
   test('the report payload names the guardian, the city, the adapter and a fresh timestamp', () => {
     calmSource()
     const chain = setupChain({ cities: [info(CITY_A, 'Jakarta', ONE, [ADAPTER_A1])] })
@@ -213,7 +225,7 @@ describe('City Guardian workflow', () => {
 })
 
 /** HTTP mock that answers the Morpho query and, separately, the LLM call; records which URLs were hit. */
-function sourceAndLlm(llmText: string | null, llmStatus = 200) {
+function sourceAndLlm(llmText: string | null, llmStatus = 200, leadingBlocks: object[] = []) {
   const urls: string[] = []
   const bodies: string[] = []
   const http = HttpActionsMock.testInstance()
@@ -228,7 +240,7 @@ function sourceAndLlm(llmText: string | null, llmStatus = 200) {
     bodies.push(Buffer.from(input.body ?? '', 'base64').toString('utf8'))
     return {
       statusCode: llmStatus,
-      body: Buffer.from(JSON.stringify({ content: llmText === null ? [] : [{ type: 'text', text: llmText }] })).toString('base64'),
+      body: Buffer.from(JSON.stringify({ content: llmText === null ? [...leadingBlocks] : [...leadingBlocks, { type: 'text', text: llmText }] })).toString('base64'),
     }
   }
   return { urls, bodies }
@@ -262,9 +274,18 @@ describe('LLM second opinion', () => {
     const { urls } = sourceAndLlm('{"risk":"HIGH","reason":"Escalating."}')
     const chain = slightlyDown()
     const runtime = withSecret('XKIRO_API_KEY', 'xk-test')
-    runtime.config = llmConfig('xkiro', 'anthropic/claude-sonnet-5-5')
+    runtime.config = llmConfig('xkiro', 'anthropic/claude-sonnet-5')
     expect(onCronTrigger(runtime)).toContain('EVACUATED')
     expect(urls.some((u) => u.startsWith('https://api.xkiro.com/v1/messages'))).toBe(true)
+    expect(chain.writes).toBe(1)
+  })
+
+  test('a reply that starts with a thinking block still yields the verdict from the text block', () => {
+    sourceAndLlm('{"risk":"HIGH","reason":"Escalating."}', 200, [{ type: 'thinking', thinking: '', signature: 'abc' }])
+    const chain = slightlyDown()
+    const runtime = withSecret('ANTHROPIC_API_KEY', 'sk-test')
+    runtime.config = llmConfig('anthropic', 'claude-sonnet-5-5')
+    expect(onCronTrigger(runtime)).toContain('Jakarta: EVACUATED')
     expect(chain.writes).toBe(1)
   })
 

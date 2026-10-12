@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { buildLlmRequest, defaultBaseUrl, parseLlmReply, replyText, SYSTEM_PROMPT, type LlmConfig } from './llm'
 
 const anthropic: LlmConfig = { provider: 'anthropic', model: 'claude-sonnet-5-5', maxTokens: 300 }
-const xkiro: LlmConfig = { provider: 'xkiro', model: 'anthropic/claude-sonnet-5-5', maxTokens: 300 }
+const xkiro: LlmConfig = { provider: 'xkiro', model: 'anthropic/claude-sonnet-5', maxTokens: 300 }
 
 describe('buildLlmRequest', () => {
   test('anthropic: official endpoint, x-api-key and version header, model and snapshot in the body', () => {
@@ -14,6 +14,7 @@ describe('buildLlmRequest', () => {
     const body = JSON.parse(r.body)
     expect(body.model).toBe('claude-sonnet-5-5')
     expect(body.max_tokens).toBe(300)
+    expect(body.thinking).toEqual({ type: 'between_tools' })
     expect(body.system).toBe(SYSTEM_PROMPT)
     expect(body.messages[0]).toEqual({ role: 'user', content: JSON.stringify({ cities: [] }) })
   })
@@ -22,7 +23,8 @@ describe('buildLlmRequest', () => {
     expect(r.url).toBe('https://api.xkiro.com/v1/messages')
     expect(r.headers['authorization']).toBe('Bearer k')
     expect(r.headers['x-api-key']).toBe('k')
-    expect(JSON.parse(r.body).model).toBe('anthropic/claude-sonnet-5-5')
+    expect(JSON.parse(r.body).model).toBe('anthropic/claude-sonnet-5')
+    expect(JSON.parse(r.body).thinking).toBeUndefined()
   })
   test('a custom base URL wins and a trailing slash is tolerated', () => {
     expect(buildLlmRequest({ ...anthropic, baseUrl: 'https://proxy.example/v1/' }, 'k', {}).url).toBe('https://proxy.example/v1/messages')
