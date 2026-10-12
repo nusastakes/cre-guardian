@@ -64,7 +64,10 @@ pernah mengirim dana ke pihak ketiga.
 
 **LLM.** `provider` bisa `anthropic` (`https://api.anthropic.com/v1/messages`, model `claude-sonnet-5-5`), `xkiro`
 (gateway yang kompatibel dengan format Anthropic dan OpenAI di `https://api.xkiro.com/v1/messages`; ID model memakai
-awalan vendor dan diambil dari `GET /v1/models`, bukan ditebak), atau `none` (hanya aturan). Kuncinya `ANTHROPIC_API_KEY`
+awalan vendor dan diambil dari `GET /v1/models`, bukan ditebak), atau `none` (hanya aturan). Diperiksa dengan panggilan
+nyata pada 13 Okt 2026 memakai pembuat permintaan workflow ini: Anthropic `claude-sonnet-5-5` dan xKiro
+`anthropic/claude-sonnet-5` sama-sama membalas 200 dengan JSON yang lolos parser. Daftar model xKiro pada hari itu tidak
+memuat `claude-sonnet-5-5`; padanan terdekatnya `anthropic/claude-sonnet-5`. Kuncinya `ANTHROPIC_API_KEY`
 atau `XKIRO_API_KEY`, dibaca lewat rahasia CRE, tidak pernah ditaruh di konfigurasi atau repo. Tanpa kunci, workflow
 tetap jalan hanya dengan aturan. Catatan: pada HTTP biasa kunci terlihat oleh node yang memanggil; untuk produksi
 sungguhan pakai Confidential HTTP.
