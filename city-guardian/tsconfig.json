@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": [
+      "ESNext"
+    ],
+    "outDir": "./dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": [
+      "bun"
+    ]
+  },
+  "include": [
+    "main.ts",
+    "workflow.ts",
+    "risk.ts",
+    "llm.ts",
+    "*.test.ts",
+    "../contracts/evm/ts/generated/CityFactory.ts",
+    "../contracts/evm/ts/generated/CityGuardian.ts",
+    "../contracts/evm/ts/generated/CityVault.ts",
+    "../contracts/evm/ts/generated/MirrorYieldAdapter.ts"
+  ]
+}

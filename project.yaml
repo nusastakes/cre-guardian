@@ -1,0 +1,13 @@
+# ==========================================================================
+# CRE PROJECT SETTINGS FILE
+# RPC endpoints per target. The workflow reads Monad testnet and writes its reports there.
+# ==========================================================================
+staging-settings:
+  rpcs:
+    - chain-name: monad-testnet
+      url: https://testnet-rpc.monad.xyz
+
+production-settings:
+  rpcs:
+    - chain-name: monad-testnet
+      url: https://testnet-rpc.monad.xyz

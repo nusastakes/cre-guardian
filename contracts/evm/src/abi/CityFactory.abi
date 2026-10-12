@@ -1,0 +1,115 @@
+[
+ {
+  "type": "function",
+  "name": "cityCount",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "cityInfos",
+  "inputs": [
+   {
+    "name": "start",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "count",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "infos",
+    "type": "tuple[]",
+    "internalType": "struct CityFactory.CityInfo[]",
+    "components": [
+     {
+      "name": "vault",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
+      "name": "mayor",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
+      "name": "name",
+      "type": "string",
+      "internalType": "string"
+     },
+     {
+      "name": "community",
+      "type": "string",
+      "internalType": "string"
+     },
+     {
+      "name": "mapURI",
+      "type": "string",
+      "internalType": "string"
+     },
+     {
+      "name": "feeBps",
+      "type": "uint16",
+      "internalType": "uint16"
+     },
+     {
+      "name": "createdAt",
+      "type": "uint64",
+      "internalType": "uint64"
+     },
+     {
+      "name": "totalAssets",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "totalSupply",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "pricePerShare",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "adapters",
+      "type": "address[]",
+      "internalType": "address[]"
+     }
+    ]
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "isCity",
+  "inputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ }
+]

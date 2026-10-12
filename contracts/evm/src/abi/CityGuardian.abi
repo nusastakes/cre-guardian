@@ -1,0 +1,81 @@
+[
+ {
+  "type": "function",
+  "name": "CRE_SATPAM",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "isActiveAgent",
+  "inputs": [
+   {
+    "name": "city",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "agent",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "role",
+    "type": "uint8",
+    "internalType": "enum CityGuardian.Role"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "lastScheduledAt",
+  "inputs": [
+   {
+    "name": "cityAdapterKey",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "scheduledAt",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "onReport",
+  "inputs": [
+   {
+    "name": "metadata",
+    "type": "bytes",
+    "internalType": "bytes"
+   },
+   {
+    "name": "report",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ }
+]
