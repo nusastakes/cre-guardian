@@ -55,7 +55,7 @@ setiap putaran cron memantau jendela berikutnya sehingga semua kota tercakup, li
   "schedule": "0 */10 * * * *",
   "chainSelectorName": "monad-testnet",
   "factoryAddress": "0x6765F0C80F6a7D5EC7Af120d12e81628F641508E",
-  "guardianAddress": "0x1ade0e93f4c10b6d57f2e802b8b4e6167f0f0ea4",
+  "guardianAddress": "0x74f881ec300dfd1bfd26b4c0392f713fc775e7b9",
   "maxCities": 3,
   "firstCity": 0,
   "thresholds": { "drawdownHighBps": 200, "drawdownMediumBps": 50, "apyOutlierPct": 25 },
