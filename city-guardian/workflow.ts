@@ -30,6 +30,7 @@ import { CityFactory } from '../contracts/evm/ts/generated/CityFactory'
 import { CityGuardian } from '../contracts/evm/ts/generated/CityGuardian'
 import { CityVault } from '../contracts/evm/ts/generated/CityVault'
 import { MirrorYieldAdapter } from '../contracts/evm/ts/generated/MirrorYieldAdapter'
+import { apyFeedConfigSchema, onApyFeedTrigger } from './apyfeed'
 import { buildLlmRequest, llmConfigSchema, parseLlmReply, replyText, type LlmReply } from './llm'
 import {
   CRE_SATPAM,
@@ -76,6 +77,8 @@ export const configSchema = z.object({
   gasLimit: z.string().default('450000'),
   /** For the demo only: forces HIGH risk for the city with this vault address, to show an evacuation on camera. */
   demoForceHighCity: z.string().optional(),
+  /** Second handler: writes the catalog's APYs into ApyFeed through CRE reports (apyfeed.ts). Off when absent. */
+  apyFeed: apyFeedConfigSchema.optional(),
 })
 export type Config = z.infer<typeof configSchema>
 
@@ -326,8 +329,19 @@ function askForOpinion(
   return null
 }
 
+export const onApyFeedCron = (runtime: Runtime<Config>): string => {
+  const network = networkOf(runtime.config)
+  const evm = new cre.capabilities.EVMClient(network.chainSelector.selector)
+  const result = onApyFeedTrigger(runtime, network.chainSelector.selector, evm)
+  runtime.log(result)
+  return result
+}
+
 // ─── Workflow init ─────────────────────────────────────────
+// Trigger 0 is the satpam, trigger 1 (when configured) the APY feed job.
 export function initWorkflow(config: Config) {
   const cron = new cre.capabilities.CronCapability()
-  return [cre.handler(cron.trigger({ schedule: config.schedule }), onCronTrigger)]
+  const handlers = [cre.handler(cron.trigger({ schedule: config.schedule }), onCronTrigger)]
+  if (config.apyFeed) handlers.push(cre.handler(cron.trigger({ schedule: config.apyFeed.schedule }), onApyFeedCron))
+  return handlers
 }

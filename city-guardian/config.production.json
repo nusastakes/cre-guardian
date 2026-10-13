@@ -21,5 +21,81 @@
   },
   "gasLimit": "450000",
   "rotate": true,
-  "rotationSeconds": 600
+  "rotationSeconds": 600,
+  "apyFeed": {
+    "feedAddress": "0x3328AEbB57Ee0bc8d2C7f68468dEe6B9b50926b5",
+    "schedule": "0 */2 * * * *",
+    "rotationSeconds": 120,
+    "sources": [
+      {
+        "id": "aave-ausd",
+        "pool": "d795cb4c-e30f-52c0-8447-bf0853763a20"
+      },
+      {
+        "id": "euler-ausd",
+        "pool": "e150c112-d6f3-42f5-8c8d-78580058e1fd"
+      },
+      {
+        "id": "curvance-ausd",
+        "pool": "90924439-8fb8-4e6a-afe3-9ba393e68fdc"
+      },
+      {
+        "id": "upshift-earnausd",
+        "pool": "e10580de-1ad2-4bbc-a0e8-ad4db95df4a3"
+      },
+      {
+        "id": "curve-ausd-3pool",
+        "pool": "ceb80408-8ab8-4293-b274-162efff518a6"
+      },
+      {
+        "id": "balancer-avusd",
+        "pool": "86d04138-6712-5be0-85f4-1d92331ca1d5"
+      },
+      {
+        "id": "shmonad",
+        "pool": "ee40513c-9356-4c53-9f26-446b484a8ae2"
+      },
+      {
+        "id": "accountable-ausd",
+        "pool": "4baffdfd-8015-4713-bad4-10a199b30157"
+      },
+      {
+        "id": "neverland-ausd",
+        "pool": "ba0f675f-9f14-407b-b278-66d8f59f49ca"
+      },
+      {
+        "id": "morpho-hyperusdc",
+        "pool": "ec6a71a7-41ae-4e72-942f-b4bc99c3b3cb"
+      },
+      {
+        "id": "yuzu-syzusd",
+        "pool": "c51e151e-44ad-4f25-9911-102bd00811dc"
+      },
+      {
+        "id": "beefy-usdc",
+        "pool": "70f959a9-0167-54b4-a89b-53e35d75cd8e"
+      },
+      {
+        "id": "infinifi-siusd",
+        "pool": "9d102f42-e9e8-51dc-9eb4-83e1b02ccd1e"
+      },
+      {
+        "id": "pendle-ausd-fixed",
+        "pool": "653d8a8d-d221-5482-884b-1f936df4cd9e"
+      },
+      {
+        "id": "mento-ausd-usdm",
+        "pool": "ce74b9e0-376d-45ea-b1a4-362de60c12ce"
+      },
+      {
+        "id": "uniswap-wmon-usdc",
+        "pool": "82b60bc0-ec94-561a-a9e4-c481d47746dd"
+      },
+      {
+        "id": "kintsu-smon",
+        "pool": "73c511a9-4dc0-4397-babe-e578fd75f0dd"
+      }
+    ],
+    "gasLimit": "200000"
+  }
 }
