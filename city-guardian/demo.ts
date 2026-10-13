@@ -15,9 +15,9 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { CRE_SATPAM } from './risk'
 
 const RPC = process.env.MONAD_TESTNET_RPC || 'https://testnet-rpc.monad.xyz'
-const FACTORY = '0x6765F0C80F6a7D5EC7Af120d12e81628F641508E' as const
-const GUARDIAN = '0x083899bEE8138E5f951db568926393FDb1F418A2' as const
-const MIRROR_IMPL = '0x25BcA4f0ea34F115Cb7c620626fBBa95647E8690' as const
+const FACTORY = '0x194C8c5d9B93bA108104652cAD50f938e9205607' as const
+const GUARDIAN = '0x1ADE0E93F4C10b6d57F2E802B8B4e6167f0F0ea4' as const
+const MIRROR_IMPL = '0x2B2Eee125Fee62684f4Fa755C05C936b3CA2a60e' as const
 const AUSD = '0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC' as const
 const RELAYER = process.env.RELAYER_URL || 'https://relayer-production-39e1.up.railway.app'
 /** The forwarder `cre workflow simulate --broadcast` writes through on Monad testnet. */

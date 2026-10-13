@@ -1,8 +1,8 @@
 {
   "schedule": "0 */10 * * * *",
   "chainSelectorName": "monad-testnet",
-  "factoryAddress": "0x6765F0C80F6a7D5EC7Af120d12e81628F641508E",
-  "guardianAddress": "0x083899bEE8138E5f951db568926393FDb1F418A2",
+  "factoryAddress": "0x194C8c5d9B93bA108104652cAD50f938e9205607",
+  "guardianAddress": "0x1ADE0E93F4C10b6d57F2E802B8B4e6167f0F0ea4",
   "maxCities": 3,
   "thresholds": { "drawdownHighBps": 200, "drawdownMediumBps": 50, "apyOutlierPct": 25 },
   "llm": { "provider": "anthropic", "model": "claude-sonnet-5-5", "maxTokens": 600 },

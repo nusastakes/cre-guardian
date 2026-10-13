@@ -9,8 +9,8 @@ import { newMirrorYieldAdapterMock } from '../contracts/evm/ts/generated/MirrorY
 import { configSchema, onCronTrigger, windowStart, type Config } from './workflow'
 
 const CHAIN_SELECTOR = 2183018362218727504n // monad-testnet
-const FACTORY = getAddress('0x6765F0C80F6a7D5EC7Af120d12e81628F641508E')
-const GUARDIAN = getAddress('0x083899bEE8138E5f951db568926393FDb1F418A2')
+const FACTORY = getAddress('0x194C8c5d9B93bA108104652cAD50f938e9205607')
+const GUARDIAN = getAddress('0x1ADE0E93F4C10b6d57F2E802B8B4e6167f0F0ea4')
 const CITY_A = getAddress('0x00000000000000000000000000000000000a0001')
 const CITY_B = getAddress('0x00000000000000000000000000000000000b0002')
 const ADAPTER_A1 = getAddress('0x0000000000000000000000000000000000a1a1a1')
