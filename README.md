@@ -1,12 +1,18 @@
 # nusastakes/cre-guardian
 
-Workflow Chainlink CRE **"City Guardian"** (peran Satpam) untuk **Nusastakes**: memantau kota (vault ERC-4626) dan,
-bila risikonya tinggi, meminta kontrak `CityGuardian` menarik dana kota dari adapter kembali ke idle.
+Workflow Chainlink CRE **"City Guardian"** untuk **Nusastakes**, dengan dua handler:
 
-> **Status:** kode workflow, tes, dan binding kontrak lulus (49 tes bun). **Sudah dijalankan di simulator CRE** (13 Okt
-> 2026): simulasi dengan `--broadcast` mengirim laporan lewat forwarder simulasi ke `CityGuardian` di Monad testnet dan
-> mengevakuasi adapter kota demo (tx `0x10749bb7f363aaeae6461b6d3f31175921148f79da323baa478c3251a6332cca`, lihat bagian
-> "Simulasi"). **Belum diuji** di jaringan DON sungguhan dengan forwarder produksi: itu butuh Deploy Access dari Chainlink.
+- **Trigger 0, Satpam:** memantau kota (vault ERC-4626) dan, bila risikonya tinggi, meminta kontrak `CityGuardian` menarik
+  dana kota dari adapter kembali ke idle.
+- **Trigger 1, penulis APY (14 Okt 2026):** tiap 2 menit mengambil satu layanan katalog secara bergiliran, membaca APY
+  pool-nya dari DefiLlama Yields (disepakati node), lalu menulis laporan ke `ApyFeed`. Dengan begitu bunga yang
+  menggerakkan imbal hasil simulasi semua kota tidak hanya bergantung pada kunci relayer.
+
+> **Status:** kode workflow, tes, dan binding kontrak lulus (55 tes bun, 14 Okt 2026). **Sudah dijalankan di simulator
+> CRE:** Satpam (13 Okt) mengirim laporan lewat forwarder simulasi ke `CityGuardian` di Monad testnet dan mengevakuasi
+> adapter kota demo (tx `0x10749bb7f363aaeae6461b6d3f31175921148f79da323baa478c3251a6332cca`); penulis APY (14 Okt) menulis
+> APY Euler 894 bps ke `ApyFeed` (tx `0x2ce46255cb3ee44ff6165ce04e4ec08a5e43f5a5da7bcf9b9875f73512a8caa6`). Lihat bagian
+> "Simulasi". **Belum diuji** di jaringan DON sungguhan dengan forwarder produksi: itu butuh Deploy Access dari Chainlink.
 
 ## Cara kerja
 
@@ -38,7 +44,8 @@ pernah mengirim dana ke pihak ketiga.
 | `city-guardian/workflow.ts` | Workflow: pembacaan rantai, HTTP, penilaian, laporan |
 | `city-guardian/risk.ts` | Aturan risiko, penggabungan dengan LLM, enkode muatan laporan (murni, tanpa SDK) |
 | `city-guardian/llm.ts` | Permintaan dan parsing balasan LLM untuk dua provider |
-| `city-guardian/*.test.ts` | 49 tes (`bun test`) |
+| `city-guardian/apyfeed.ts` | Handler kedua (trigger 1): pilih sumber per slot waktu, baca `ApyFeed.latest`, ambil `/chart/<pool>` DefiLlama, tulis laporan `abi.encode(target, sourceId, apyBps, observedAt, chainSelector)` |
+| `city-guardian/*.test.ts` | 55 tes (`bun test`) |
 | `city-guardian/config.{staging,production}.json` | Parameter: jadwal, alamat kontrak, ambang, provider LLM |
 | `contracts/evm/src/abi/` | ABI ringkas (hanya fungsi yang dipakai workflow) dari repo `contracts` |
 | `contracts/evm/ts/generated/` | Binding TypeScript hasil `cre generate-bindings evm` |
@@ -54,7 +61,7 @@ setiap putaran cron memantau jendela berikutnya sehingga semua kota tercakup, li
 {
   "schedule": "0 */10 * * * *",
   "chainSelectorName": "monad-testnet",
-  "factoryAddress": "0x6765F0C80F6a7D5EC7Af120d12e81628F641508E",
+  "factoryAddress": "0xDC9A322E95E7d9214fA794D39534a15B4aB3d9fF",
   "guardianAddress": "0x74f881ec300dfd1bfd26b4c0392f713fc775e7b9",
   "maxCities": 3,
   "firstCity": 0,
@@ -64,6 +71,12 @@ setiap putaran cron memantau jendela berikutnya sehingga semua kota tercakup, li
   "gasLimit": "450000"
 }
 ```
+
+Blok `apyFeed` (opsional; tanpa blok ini hanya Satpam yang terdaftar) berisi `feedAddress` (`ApyFeed`
+`0x3328AEbB57Ee0bc8d2C7f68468dEe6B9b50926b5`), `schedule` (`0 */2 * * * *`), `rotationSeconds` (120), dan `sources`
+(17 layanan katalog `{ id, pool }`; `sourceId` = keccak256 id pool, aturan yang sama dengan kontrak, relayer, dan web).
+APY di atas 50% ditulis 5000 bps (batas feed). `observedAt` = waktu DON dikurangi 30 detik, dan laporan tidak dikirim bila
+feed sudah punya bacaan yang lebih baru (keeper relayer juga menulis sumber yang sama).
 
 **LLM.** `provider` bisa `anthropic` (`https://api.anthropic.com/v1/messages`, model `claude-sonnet-5-5`), `xkiro`
 (gateway yang kompatibel dengan format Anthropic dan OpenAI di `https://api.xkiro.com/v1/messages`; ID model memakai
@@ -81,7 +94,7 @@ video; kosongkan di luar demo.
 ## Menjalankan tes
 
 ```
-export PATH="$HOME/.cre/bin:$HOME/.cre/tools:$PATH"     # lokasi CLI dan Bun bila dipasang manual
+export PATH="$HOME/.cre/bin:$HOME/.bun/bin:$PATH"       # lokasi CLI CRE dan Bun bila dipasang manual
 cd city-guardian && bun install
 bun run typecheck
 bun test
@@ -113,6 +126,17 @@ belum mengaktifkan Satpam, adapter kosong, transaksi laporan gagal, dan muatan l
    Selama guardian memakai forwarder simulasi, siapa pun bisa mengirim laporan ke sana (forwarder itu tidak memeriksa
    tanda tangan), tetapi hanya untuk kota yang mengaktifkan Satpam dan efeknya hanya menarik dana ke idle. Jangan
    dijalankan di mainnet.
+
+5. Penulis APY (trigger 1), baca-saja: `cre workflow simulate city-guardian --target staging-settings --non-interactive --trigger-index 1`.
+   Untuk `--broadcast`, `ApyFeed` harus sementara diarahkan ke forwarder simulasi dengan kunci pemilik feed:
+   `setForwarderAddress(0xB9F79d863261869B234c481D1f9A7af84AeAd192)` dan `setIdentityEnforced(false)`, jalankan simulasi
+   sekali, lalu segera `setForwarderAddress(0xF8344CFd5c43616a4366C34E3EEE75af79a74482)` dan `setIdentityEnforced(true)`.
+   Selama jendela itu siapa pun bisa menulis APY ke feed testnet, jadi buka sesingkat mungkin.
+
+**Hasil 14 Okt 2026 (penulis APY):** baca-saja dan `--broadcast` lulus. Log: `APY euler-ausd 894 bps (DefiLlama
+8.94007%), feed had 893 bps` lalu `euler-ausd: wrote 894 bps, tx 0x2ce46255…caa6`. Tx sukses; log memuat `ApySet` dari
+`ApyFeed` dan event forwarder simulasi; `ApyFeed.latest(sourceId Euler)` menjadi 894 bps. Forwarder dan
+`identityEnforced=true` dikembalikan dalam menit yang sama (diperiksa on-chain).
 
 **Hasil 13 Okt 2026:** log simulator menunjukkan kota dibaca, sumber Morpho terjangkau, aturan HIGH (bendera demo), lalu
 `EVACUATE Satpam demo adapter 0x5Ac88e9D…1CA2 (500000021 units)` dan `Report sent. tx 0x10749bb7…cca`. Tx itu berstatus
@@ -152,7 +176,8 @@ adapter); kuota itu belum ditegakkan di kode. Perbaikan lanjutan yang layak: tem
 
 ## Penggunaan alat AI
 
-Dibuat dengan Claude Code (Claude Opus untuk rencana dan pemeriksaan, Claude Sonnet 5.5 untuk pengerjaan). Keluaran AI
+Dibuat dengan Claude Code (Claude Opus untuk rencana dan pemeriksaan, Claude Sonnet 5.5 untuk pengerjaan Satpam; penulis
+APY pada 14 Okt ditulis Claude Opus). Keluaran AI
 diperiksa pengembang; yang belum diuji ditulis "belum diuji". LLM dalam workflow ini hanya memberi pendapat kedua dan
 tidak bisa menggerakkan dana: keputusan akhir ditentukan aturan yang pasti, dan kontrak membatasi aksinya ke evakuasi
 menuju idle.
