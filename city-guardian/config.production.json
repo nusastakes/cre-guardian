@@ -4,12 +4,22 @@
   "factoryAddress": "0x6765F0C80F6a7D5EC7Af120d12e81628F641508E",
   "guardianAddress": "0x083899bEE8138E5f951db568926393FDb1F418A2",
   "maxCities": 3,
-  "thresholds": { "drawdownHighBps": 200, "drawdownMediumBps": 50, "apyOutlierPct": 25 },
-  "llm": { "provider": "anthropic", "model": "claude-sonnet-5-5", "maxTokens": 600 },
+  "thresholds": {
+    "drawdownHighBps": 200,
+    "drawdownMediumBps": 50,
+    "apyOutlierPct": 25
+  },
+  "llm": {
+    "provider": "anthropic",
+    "model": "claude-sonnet-5-5",
+    "maxTokens": 600
+  },
   "source": {
     "morphoApi": "https://blue-api.morpho.org/graphql",
     "vault": "0x32841A8511D5c2c5b253f45668780B99139e476D",
     "chainId": 143
   },
-  "gasLimit": "450000"
+  "gasLimit": "450000",
+  "rotate": true,
+  "rotationSeconds": 600
 }

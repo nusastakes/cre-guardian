@@ -54,6 +54,13 @@ export const configSchema = z.object({
   maxCities: z.number().int().min(1).max(3).default(3),
   /** Index in the factory's city list of the first city to watch. A window of `maxCities` cities starts here. */
   firstCity: z.number().int().min(0).default(0),
+  /**
+   * Walk the whole city list instead of one fixed window: each `rotationSeconds` slot watches the next window of
+   * `maxCities` cities, so every city is covered once per cycle. `firstCity` is ignored. Costs one extra read.
+   */
+  rotate: z.boolean().default(false),
+  /** Length of one rotation slot. Keep it equal to the cron interval so each run moves on to the next window. */
+  rotationSeconds: z.number().int().min(1).default(600),
   thresholds: z.object({
     drawdownHighBps: z.number().int().min(1),
     drawdownMediumBps: z.number().int().min(1),
@@ -154,8 +161,25 @@ interface CitySnapshot {
   adapters: { address: Address; assets: bigint }[]
 }
 
+/**
+ * Index of the first city to watch in this run. Fixed at `firstCity`, or, when rotating, the window for the current
+ * time slot: with 21 cities and windows of 3, slot 0 watches cities 0 to 2, slot 1 cities 3 to 5, and so on, then it
+ * starts over. Pure, so every node computes the same window from the same consensus time.
+ */
+export function windowStart(cfg: { firstCity: number; maxCities: number; rotate: boolean; rotationSeconds: number }, cityCount: number, nowSeconds: number): number {
+  if (!cfg.rotate) return cfg.firstCity
+  const windows = Math.max(1, Math.ceil(cityCount / cfg.maxCities))
+  const slot = Math.floor(nowSeconds / cfg.rotationSeconds)
+  return (slot % windows) * cfg.maxCities
+}
+
 function readCities(runtime: Runtime<Config>, guardian: CityGuardian, factory: CityFactory, evm: InstanceType<typeof cre.capabilities.EVMClient>): CitySnapshot[] {
-  const infos = factory.cityInfos(runtime, BigInt(runtime.config.firstCity), BigInt(runtime.config.maxCities))
+  const cfg = runtime.config
+  const first = cfg.rotate
+    ? windowStart(cfg, Number(factory.cityCount(runtime)), Math.floor(runtime.now().getTime() / 1000))
+    : cfg.firstCity
+  if (cfg.rotate) runtime.log(`Rotating window: cities ${first} to ${first + cfg.maxCities - 1}`)
+  const infos = factory.cityInfos(runtime, BigInt(first), BigInt(cfg.maxCities))
   return infos.map((info) => {
     const city = getAddress(info.vault)
     const satpamEnabled = guardian.isActiveAgent(runtime, city, CRE_SATPAM, SATPAM_ROLE)

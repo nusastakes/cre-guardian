@@ -6,7 +6,7 @@ import { newCityFactoryMock } from '../contracts/evm/ts/generated/CityFactory_mo
 import { newCityGuardianMock } from '../contracts/evm/ts/generated/CityGuardian_mock'
 import { newCityVaultMock } from '../contracts/evm/ts/generated/CityVault_mock'
 import { newMirrorYieldAdapterMock } from '../contracts/evm/ts/generated/MirrorYieldAdapter_mock'
-import { configSchema, onCronTrigger, type Config } from './workflow'
+import { configSchema, onCronTrigger, windowStart, type Config } from './workflow'
 
 const CHAIN_SELECTOR = 2183018362218727504n // monad-testnet
 const FACTORY = getAddress('0x6765F0C80F6a7D5EC7Af120d12e81628F641508E')
@@ -60,13 +60,17 @@ function setupChain(opts: {
   enabled?: Record<string, boolean>
   highWaterMark?: Record<string, bigint>
   holdings?: Record<string, bigint>
+  /** What `cityCount` returns, when the factory holds more cities than the window the mock hands back. */
+  totalCities?: number
 }): Setup {
   const evm = EvmMock.testInstance(CHAIN_SELECTOR)
   const state: Setup = { evm, reports: [], writes: 0 }
-  newCityFactoryMock(FACTORY, evm).cityInfos = (start, count) => {
+  const factoryMock = newCityFactoryMock(FACTORY, evm)
+  factoryMock.cityInfos = (start, count) => {
     state.cityWindow = [start, count]
     return opts.cities
   }
+  factoryMock.cityCount = () => BigInt(opts.totalCities ?? opts.cities.length)
   newCityGuardianMock(GUARDIAN, evm).isActiveAgent = (city) => opts.enabled?.[getAddress(city)] ?? true
   for (const c of opts.cities) {
     newCityVaultMock(c.vault, evm).highWaterMark = () => opts.highWaterMark?.[c.vault] ?? ONE
@@ -165,6 +169,28 @@ describe('City Guardian workflow', () => {
     const chain = setupChain({ cities: [info(CITY_A, 'Jakarta', ONE, [ADAPTER_A1])] })
     onCronTrigger(runtimeWith(baseConfig({ firstCity: 3, maxCities: 2 })))
     expect(chain.cityWindow).toEqual([3n, 2n])
+  })
+
+  test('rotating walks the whole list: every slot watches the next window and the cycle starts over', () => {
+    const cfg = { firstCity: 0, maxCities: 3, rotate: true, rotationSeconds: 600 }
+    const starts = [0, 600, 1200, 1800, 2400, 3000, 3600, 4200, 4800].map((t) => windowStart(cfg, 21, t))
+    expect(starts).toEqual([0, 3, 6, 9, 12, 15, 18, 0, 3])
+    // Within one slot the window does not move; a short last window (22 cities) is still reached.
+    expect(windowStart(cfg, 21, 599)).toBe(0)
+    expect(windowStart(cfg, 22, 3600 * 1 + 600 * 0)).toBe(18)
+    // Not rotating keeps the fixed window; an empty or small list falls back to the start.
+    expect(windowStart({ ...cfg, rotate: false, firstCity: 8 }, 21, 1200)).toBe(8)
+    expect(windowStart(cfg, 0, 1200)).toBe(0)
+    expect(windowStart(cfg, 2, 1200)).toBe(0)
+  })
+
+  test('with rotate on, the workflow asks the factory for the window of the current slot', () => {
+    calmSource()
+    const chain = setupChain({ cities: [info(CITY_A, 'Jakarta', ONE, [ADAPTER_A1])], totalCities: 21 })
+    const runtime = runtimeWith(baseConfig({ rotate: true, rotationSeconds: 600 }))
+    const slot = Math.floor(runtime.now().getTime() / 1000 / 600)
+    onCronTrigger(runtime)
+    expect(chain.cityWindow).toEqual([BigInt((slot % 7) * 3), 3n])
   })
 
   test('the report payload names the guardian, the city, the adapter and a fresh timestamp', () => {

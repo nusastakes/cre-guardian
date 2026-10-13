@@ -47,7 +47,8 @@ pernah mengirim dana ke pihak ketiga.
 ## Konfigurasi
 
 `city-guardian/config.staging.json` (ambang dalam basis poin; `maxCities` paling banyak 3 supaya tetap di bawah kuota
-15 pembacaan EVM per eksekusi; `firstCity` = indeks kota pertama di factory yang dipantau, lihat "Keterbatasan"):
+15 pembacaan EVM per eksekusi; `firstCity` = indeks kota pertama di factory yang dipantau; `rotate: true` membuat
+setiap putaran cron memantau jendela berikutnya sehingga semua kota tercakup, lihat "Keterbatasan"):
 
 ```json
 {
@@ -118,9 +119,15 @@ belum mengaktifkan Satpam, adapter kosong, transaksi laporan gagal, dan muatan l
 sukses (kunci simulator ke forwarder simulasi, 450000 gas) dan menghasilkan `EvacuationRequested` di guardian; sesudahnya
 adapter berisi 0 dan seluruh 1.000,000022 AUSD kota ada di idle. Konfigurasi guardian lalu dipulihkan.
 
-**Keterbatasan:** workflow hanya memantau satu jendela `maxCities` (paling banyak 3) kota mulai dari `firstCity`,
-karena kuota 15 pembacaan EVM per eksekusi. Di factory dengan banyak kota, kota ber-Satpam di luar jendela tidak terpantau.
-Perbaikan yang layak: temukan kota ber-Satpam lewat log `AgentGranted` (`filterLogs`).
+**Keterbatasan:** satu eksekusi hanya membaca satu jendela `maxCities` (paling banyak 3) kota, karena kuota 15
+pembacaan EVM per eksekusi. Dengan `rotate: true` (dipakai di `config.production.json`; `config.staging.json` tetap
+jendela tetap supaya demo dapat diprediksi) jendelanya berpindah tiap `rotationSeconds` (samakan dengan interval cron):
+`floor(waktu / rotationSeconds) mod jumlahJendela`, dengan jumlah kota dibaca dari `cityCount()` (satu pembacaan
+tambahan). Hasilnya semua kota dicek sekali per siklus, misalnya 24 kota berarti 8 jendela dan satu siklus 80 menit,
+jadi kota tertentu bisa tertinggal sampai 80 menit sebelum diperiksa; rotasi tidak menggantikan pemantauan terus-menerus.
+Satu eksekusi dengan banyak adapter per kota masih bisa melewati kuota 15 (tiap kota memakai 2 pembacaan ditambah satu per
+adapter); kuota itu belum ditegakkan di kode. Perbaikan lanjutan yang layak: temukan kota ber-Satpam lewat log
+`AgentGranted` (`filterLogs`) supaya tidak membuang pembacaan pada kota tanpa Satpam.
 
 ## Temuan saat membangun (berguna untuk pengembang CRE lain)
 
